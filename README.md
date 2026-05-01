@@ -72,11 +72,11 @@ Tested on all 28 EMDB entries from the Q-score validation set (1.84-4.2 A resolu
 
 ## Architecture
 molviewspec_validation/
-init.py       -- Package exports
-scenes.py         -- MolViewSpec scene builders (5 scene types)
-screenshot.py     -- Headless Firefox HD PNG export
-integration.py    -- Drop-in interface for em.py
-va_data.py        -- VA JSON parsing + custom CIF creation
+init.py        - Package exports
+scenes.py      - MolViewSpec scene builders (5 scene types)
+screenshot.py  - Headless Firefox HD PNG export
+integration.py - Drop-in interface for em.py
+va_data.py     - VA JSON parsing + custom CIF creation
 
 ## Dependencies
 
@@ -87,6 +87,6 @@ va_data.py        -- VA JSON parsing + custom CIF creation
 
 ## Related
 
-- [IHMValidation #127](https://github.com/salilab/IHMValidation/issues/127) -- Re-implement plotting routines with Mol*
-- [IHMValidation #119](https://github.com/salilab/IHMValidation/issues/119) -- Re-implement Q-score
-- [qscore-mapq](https://github.com/ShravyaRS/qscore-mapq) -- Pure Python Q-score matching MapQ
+- [IHMValidation #127](https://github.com/salilab/IHMValidation/issues/127) - Re-implement plotting routines with Mol*
+- [IHMValidation #119](https://github.com/salilab/IHMValidation/issues/119) - Re-implement Q-score
+- [qscore-mapq](https://github.com/ShravyaRS/qscore-mapq) - Pure Python Q-score matching MapQ
