@@ -1,0 +1,29 @@
+pdb_id,emdb_id,resolution,method,num_residues,num_atoms,description
+5A1A,EMD-2984,2.20,singleparticle,4108,32124,Beta-galactosidase (symmetric tetramer)
+5A63,EMD-3061,3.40,singleparticle,1245,9800,Beta-galactosidase (different form)
+9E9D,EMD-47792,3.24,singleparticle,3882,30400,Large complex
+9HYU,EMD-52518,1.84,singleparticle,4543,35600,Photosystem with ligands (highest res)
+9IVJ,EMD-60928,3.15,singleparticle,1173,9200,Medium complex
+9LDX,EMD-63009,2.83,singleparticle,1165,9100,Medium complex
+9LE2,EMD-63013,3.33,singleparticle,1166,9100,Medium complex
+9MKW,EMD-48340,3.63,singleparticle,1253,9800,Medium complex
+9N09,EMD-48779,2.57,singleparticle,1023,8000,Medium complex
+9NU5,EMD-49797,3.70,singleparticle,532,4200,Small protein
+9P9C,EMD-71406,4.01,singleparticle,2312,18100,Large complex (low res)
+9R0I,EMD-53483,3.10,singleparticle,551,4300,Small protein
+9R1Q,EMD-53512,2.24,singleparticle,3996,31300,Large complex (high res)
+9R5K,EMD-53590,4.20,singleparticle,1066,8400,Protein+nucleic acid (lowest res)
+9R85,EMD-53804,3.04,singleparticle,886,6900,Medium complex
+9S98,EMD-54674,3.86,singleparticle,567,4400,Small protein
+9SIQ,EMD-54930,2.96,singleparticle,1785,14000,Medium-large complex
+9SYV,EMD-55355,2.89,singleparticle,2274,17800,Large complex
+9T9U,EMD-55737,2.61,singleparticle,4120,32300,Large complex
+9TEO,EMD-55831,3.27,singleparticle,767,6000,Medium complex
+9TNZ,EMD-56096,3.52,singleparticle,2574,20200,Large complex
+9U2S,EMD-56518,3.20,singleparticle,870,6800,Protein+nucleic acid
+9UCL,EMD-64047,2.43,singleparticle,2031,15900,Large complex
+9VBT,EMD-64933,2.30,singleparticle,3486,27300,Large complex (high res)
+9WUF,EMD-66260,3.01,singleparticle,1212,9500,Medium complex
+9XED,EMD-66788,3.40,singleparticle,2036,16000,Large complex
+9XZK,EMD-72359,3.91,singleparticle,492,3900,Small protein (low-variance map)
+9Z8M,EMD-73900,2.70,singleparticle,2400,18800,Large complex
