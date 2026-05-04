@@ -18,6 +18,8 @@ final_screenshots/
 final_screenshots_v2/
 hd_screenshots/
 *.html
-*.png
 *.mvsj
 geckodriver.log
+# Allow images in the images/ directory
+*.png
+!images/*.png

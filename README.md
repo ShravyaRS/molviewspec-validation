@@ -1,92 +1,121 @@
 # molviewspec-validation
 
-MolViewSpec-based 3DEM validation visualization for [IHMValidation](https://github.com/salilab/IHMValidation).
+![Tests](https://img.shields.io/badge/tests-61%20passed-brightgreen)
+![Entries](https://img.shields.io/badge/benchmark-28%20entries-blue)
+![Resolution](https://img.shields.io/badge/resolution-1.84--4.20%20%C3%85-orange)
+![Python](https://img.shields.io/badge/python-3.8%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-Replaces ChimeraX dependency for generating structural views in the validation pipeline ([issue #127](https://github.com/salilab/IHMValidation/issues/127)).
+MolViewSpec-based 3DEM validation visualization for [IHMValidation](https://github.com/salilab/IHMValidation). Replaces ChimeraX dependency for generating structural views in the validation pipeline ([issue #127](https://github.com/salilab/IHMValidation/issues/127)).
+
+## Results
+
+### Map-Model Fit Views
+
+Structure (green cartoon) inside density map (transparent blue isosurface), from Z viewing angle.
+
+| 5A1A / EMD-2984 (2.2 A) | 9HYU / EMD-52518 (1.84 A) | 9XZK / EMD-72359 (3.91 A) |
+|:---:|:---:|:---:|
+| ![5A1A map-model](images/5a1a_mapmodel_z.png) | ![9HYU map-model](images/9hyu_mapmodel_z.png) | ![9XZK map-model](images/9xzk_mapmodel_z.png) |
+| Beta-galactosidase (tetramer) | Photosystem (with ligands) | Cullin-1 (low-variance map) |
+
+### Atom Inclusion Views
+
+Structure colored by real per-residue atom inclusion scores from VA output. Green = high inclusion (inside density), Red = low inclusion (outside density).
+
+| 5A1A / EMD-2984 | 9HYU / EMD-52518 | 9XZK / EMD-72359 |
+|:---:|:---:|:---:|
+| ![5A1A inclusion](images/5a1a_inclusion_z.png) | ![9HYU inclusion](images/9hyu_inclusion_z.png) | ![9XZK inclusion](images/9xzk_inclusion_z.png) |
+| AI = 0.893 | AI = varies by chain | AI = 0.376 |
+
+All images rendered at 3840x1990 px via headless Firefox, no ChimeraX required.
 
 ## Features
 
-### Scene Types
-- **Map-model fit** -- structure + density map isosurface (replaces `*_xsurface.jpeg`)
-- **Q-score colored** -- structure colored by Q-score with RdYlGn palette (replaces `*_xqscoresurface.jpeg`)
-- **Atom inclusion colored** -- structure colored by real VA per-residue atom inclusion scores with RdYlGn palette (replaces `*_xfitsurface.jpeg`)
+**Scene Types**
+- Map-model fit -- structure + density isosurface (replaces *_xsurface.jpeg)
+- Q-score colored -- RdYlGn palette (replaces *_xqscoresurface.jpeg)
+- Atom inclusion colored -- real VA per-residue scores (replaces *_xfitsurface.jpeg)
 
-### Rendering
-- 3 orthogonal views (X, Y, Z) with auto-centering via `focus()`
-- HD static images (3840x1990 px) via headless Firefox + Selenium
-- Interactive HTML with embedded Mol* viewer (rotate, zoom, click atoms)
-- Density streaming from EMDB volume server (no local map download needed)
+**Rendering**
+- 3 orthogonal views (X, Y, Z) with auto-centering
+- HD static images (3840x1990) via headless Firefox + Selenium
+- Interactive HTML with embedded Mol* viewer
+- Density streaming from EMDB volume server (no local map download)
 
-### VA Data Integration
+**VA Data Integration**
 - Reads per-residue atom inclusion scores from VA JSON output
-- Creates custom CIF with scores in B-factor column for Mol* coloring
-- Works with the actual VA pipeline data (not B-factor proxy)
-
-### Integration
-- Drop-in replacement for ChimeraX image generation in `em.py`
-- Returns base64-encoded images in the format expected by `fit_plots`
+- Creates custom CIF with scores in B-factor column
+- Colors structure using actual validation data, not B-factor proxy
 
 ## Usage
 
 ### Generate interactive HTML views
-```python
-from molviewspec_validation import generate_all_views
 
-outputs = generate_all_views("5A1A", "EMD-2984", output_dir="views/")
-# Creates 9 HTML files (3 views x 3 scene types)
-```
+    from molviewspec_validation import generate_all_views
+    outputs = generate_all_views("5A1A", "EMD-2984", output_dir="views/")
 
 ### Use real VA atom inclusion data
-```python
-from molviewspec_validation import (
-    parse_va_residue_inclusion, create_scored_cif,
-    cif_to_data_url, create_va_inclusion_scene,
-)
 
-scores = parse_va_residue_inclusion("emd_2984.map_residue_inclusion.json")
-create_scored_cif("5a1a.cif", "5a1a_scored.cif", scores)
-data_url = cif_to_data_url("5a1a_scored.cif")
-builder = create_va_inclusion_scene(data_url, "EMD-2984", view="z")
-```
+    from molviewspec_validation import (
+        parse_va_residue_inclusion, create_scored_cif,
+        cif_to_data_url, create_va_inclusion_scene,
+    )
+    scores = parse_va_residue_inclusion("emd_2984.map_residue_inclusion.json")
+    create_scored_cif("5a1a.cif", "5a1a_scored.cif", scores)
+    data_url = cif_to_data_url("5a1a_scored.cif")
+    builder = create_va_inclusion_scene(data_url, "EMD-2984", view="z")
 
 ### Integration with IHMValidation em.py
-```python
-from molviewspec_validation import generate_validation_images
 
-images = generate_validation_images("5A1A", "EMD-2984")
-fit_plots['map_model'] = images['map_model']           # {'x': b64, 'y': b64, 'z': b64}
-fit_plots['map_model_q'] = images['map_model_q']       # {'X': b64, 'Y': b64, 'Z': b64}
-fit_plots['map_model_inclusion'] = images['map_model_inclusion']
-```
+    from molviewspec_validation import generate_validation_images
+    images = generate_validation_images("5A1A", "EMD-2984")
+    fit_plots['map_model'] = images['map_model']
+    fit_plots['map_model_q'] = images['map_model_q']
+    fit_plots['map_model_inclusion'] = images['map_model_inclusion']
 
 ## Validation
 
-Tested on all 28 EMDB entries from the Q-score validation set (1.84-4.2 A resolution):
+Run the full test suite:
 
-| Test | Result |
-|------|--------|
-| HTML generation (3 scene types x 3 views) | 28/28 pass, 252 files, 0 failures |
-| VA data pipeline (real inclusion scores) | 28/28 pass |
-| HD screenshot export (3840x1990) | Verified on 5 entries |
-| Edge cases (small, large, nucleic acid, low-variance) | All pass |
+    python tests/run_validation.py
+
+| Test | Entries | Files | Result |
+|------|---------|-------|--------|
+| HTML generation (map_model + qscore x 3 views) | 28/28 | 168 | All pass |
+| VA data pipeline (real inclusion scores x 3 views) | 28/28 | 84 | All pass |
+| Edge cases (small, large, nucleic acid, low-variance, low-res) | 5/5 | 15 | All pass |
+| **Total** | | **267** | **61 tests, 0 failures** |
+
+See [VALIDATION_RESULTS.md](VALIDATION_RESULTS.md) for detailed results, benchmark dataset, and validation criteria.
 
 ## Architecture
-molviewspec_validation/
-init.py        - Package exports
-scenes.py      - MolViewSpec scene builders (5 scene types)
-screenshot.py  - Headless Firefox HD PNG export
-integration.py - Drop-in interface for em.py
-va_data.py     - VA JSON parsing + custom CIF creation
+
+    molviewspec_validation/
+      __init__.py       -- Package exports
+      scenes.py         -- MolViewSpec scene builders (5 scene types)
+      screenshot.py     -- Headless Firefox HD PNG export
+      integration.py    -- Drop-in interface for em.py
+      va_data.py        -- VA JSON parsing + custom CIF creation
+    tests/
+      run_validation.py -- Reproducible 61-test validation suite
+    benchmark_dataset.csv -- 28 entries with metadata
 
 ## Dependencies
 
-- `molviewspec>=1.0`
-- `gemmi` (for CIF manipulation)
-- `selenium>=4.0` (for static image export)
-- Firefox + geckodriver (for headless rendering)
+- molviewspec >= 1.0
+- gemmi (CIF manipulation)
+- selenium >= 4.0 (static image export)
+- Firefox + geckodriver (headless rendering)
+
+## Known Limitations
+
+1. Very large CIF files (>8 MB) require HTTP serving instead of data URL embedding for screenshots
+2. Each screenshot needs a fresh browser instance (~40s per image) to avoid memory issues
+3. Color mapping may differ slightly from ChimeraX rendering; information content is identical
 
 ## Related
 
-- [IHMValidation #127](https://github.com/salilab/IHMValidation/issues/127) - Re-implement plotting routines with Mol*
-- [IHMValidation #119](https://github.com/salilab/IHMValidation/issues/119) - Re-implement Q-score
-- [qscore-mapq](https://github.com/ShravyaRS/qscore-mapq) - Pure Python Q-score matching MapQ
+- [IHMValidation #127](https://github.com/salilab/IHMValidation/issues/127) -- Re-implement plotting routines with Mol*
+- [IHMValidation #119](https://github.com/salilab/IHMValidation/issues/119) -- Re-implement Q-score
+- [qscore-mapq](https://github.com/ShravyaRS/qscore-mapq) -- Pure Python Q-score matching MapQ
