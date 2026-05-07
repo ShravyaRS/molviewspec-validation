@@ -15,6 +15,74 @@ import json
 import os
 from typing import Optional, Dict
 
+
+def _fetch_emdb_contour(emdb_id):
+    """Fetch depositor-recommended absolute contour level from EMDB API.
+    Returns float or None.
+    """
+    import json, os, urllib.request
+    eid = str(emdb_id).upper().replace("EMD-","").replace("EMD","").strip()
+    cache = f"/tmp/emdb_contour_{eid}.json"
+    if os.path.exists(cache):
+        try:
+            with open(cache) as f: return json.load(f).get("level")
+        except Exception: pass
+    try:
+        url = f"https://www.ebi.ac.uk/emdb/api/entry/EMD-{eid}"
+        with urllib.request.urlopen(url, timeout=15) as r:
+            data = json.loads(r.read())
+        for c in data.get("map",{}).get("contour_list",{}).get("contour",[]):
+            if c.get("primary"):
+                level = float(c["level"])
+                with open(cache,"w") as f: json.dump({"level":level}, f)
+                return level
+    except Exception as e:
+        print(f"  [warn] EMDB contour fetch failed for EMD-{eid}: {e}")
+    return None
+
+
+def _fetch_emdb_sigma(emdb_id, cache_dir="map_cache"):
+    """Download (cached) EMDB .map.gz, read RMS (sigma) from CCP4 header.
+    Returns float or None.
+    """
+    import os, urllib.request, gzip, struct, json, shutil
+    eid = str(emdb_id).upper().replace("EMD-","").replace("EMD","").strip()
+
+    sigma_cache = f"/tmp/emdb_sigma_{eid}.json"
+    if os.path.exists(sigma_cache):
+        try:
+            with open(sigma_cache) as f:
+                return json.load(f).get("sigma")
+        except Exception:
+            pass
+
+    os.makedirs(cache_dir, exist_ok=True)
+    map_path = os.path.join(cache_dir, f"emd_{eid}.map")
+    if not os.path.exists(map_path):
+        url = f"https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-{eid}/map/emd_{eid}.map.gz"
+        try:
+            print(f"  [sigma] downloading EMD-{eid} (one-time)")
+            with urllib.request.urlopen(url, timeout=180) as resp:
+                with gzip.GzipFile(fileobj=resp) as gz:
+                    with open(map_path, "wb") as out:
+                        shutil.copyfileobj(gz, out)
+        except Exception as e:
+            print(f"  [warn] sigma fetch failed for EMD-{eid}: {e}")
+            return None
+
+    try:
+        with open(map_path, "rb") as f:
+            header = f.read(1024)
+        rms = struct.unpack_from("<f", header, 54*4)[0]
+        if rms > 0:
+            with open(sigma_cache, "w") as f:
+                json.dump({"sigma": rms}, f)
+            return rms
+    except Exception as e:
+        print(f"  [warn] sigma header read failed for EMD-{eid}: {e}")
+    return None
+
+
 import molviewspec as mvs
 
 
@@ -50,6 +118,65 @@ VIEW_DIRECTIONS = {
 }
 
 
+
+def _structure_extent(pdb_id):
+    """Compute geometric extent of structure from CIF.
+    Returns dict with: cx, cy, cz (bbox midpoint), and dx, dy, dz (bbox extents).
+    Cached to /tmp.
+    """
+    import os, json, urllib.request
+    pdb = pdb_id.upper()
+    cache = f"/tmp/extent_{pdb}.json"
+    if os.path.exists(cache):
+        try:
+            with open(cache) as f: return json.load(f)
+        except Exception: pass
+    try:
+        url = f"https://files.rcsb.org/download/{pdb}.cif"
+        with urllib.request.urlopen(url, timeout=30) as r:
+            text = r.read().decode("utf-8", errors="ignore")
+        coords = []
+        in_loop = False
+        cols = []
+        for line in text.splitlines():
+            if line.startswith("loop_"):
+                in_loop = True; cols = []; continue
+            if in_loop:
+                if line.startswith("_atom_site."):
+                    cols.append(line.strip())
+                    continue
+                if cols and (line.startswith("ATOM") or line.startswith("HETATM")):
+                    try:
+                        parts = line.split()
+                        ix = cols.index("_atom_site.Cartn_x")
+                        iy = cols.index("_atom_site.Cartn_y")
+                        iz = cols.index("_atom_site.Cartn_z")
+                        coords.append((float(parts[ix]), float(parts[iy]), float(parts[iz])))
+                    except (ValueError, IndexError): pass
+        if not coords:
+            return None
+        xs = [c[0] for c in coords]
+        ys = [c[1] for c in coords]
+        zs = [c[2] for c in coords]
+        result = {
+            "cx": (min(xs) + max(xs)) / 2,  # bbox midpoint, not atom mean
+            "cy": (min(ys) + max(ys)) / 2,
+            "cz": (min(zs) + max(zs)) / 2,
+            "dx": max(xs) - min(xs),
+            "dy": max(ys) - min(ys),
+            "dz": max(zs) - min(zs),
+            "n_atoms": len(coords),
+        }
+        with open(cache, "w") as f: json.dump(result, f)
+        print(f"  [extent] {pdb}: center=({result['cx']:.1f},{result['cy']:.1f},{result['cz']:.1f}) "
+              f"extent=({result['dx']:.0f},{result['dy']:.0f},{result['dz']:.0f}) "
+              f"({result['n_atoms']} atoms)")
+        return result
+    except Exception as e:
+        print(f"  [warn] structure extent fetch failed for {pdb}: {e}")
+    return None
+
+
 def _get_emdb_vol_url(emdb_id, detail=4):
     emdb_num = emdb_id.lower().replace("emd-", "").replace("emd", "")
     return EMDB_VOL_URL.format(emdb_id=emdb_num, detail=detail)
@@ -59,9 +186,20 @@ def _get_pdb_url(pdb_id):
     return PDB_URL.format(pdb_id=pdb_id.upper())
 
 
-def _apply_focus(component, view):
-    if view in VIEW_DIRECTIONS:
-        component.focus(**VIEW_DIRECTIONS[view])
+def _apply_focus(component, view, builder=None, pdb_id=None, volume=None):
+    """Camera framing using component.focus().
+
+    DO NOT use builder.camera() — Mol* interprets explicit camera
+    coordinates in fractional cell space when the CIF has degenerate
+    unit cell (length_a=1.0), causing the camera to point at the wrong
+    region. component.focus() is computed in Mol*'s scene space and
+    works correctly.
+    """
+    if view not in VIEW_DIRECTIONS:
+        return
+    direction = VIEW_DIRECTIONS[view]["direction"]
+    up = VIEW_DIRECTIONS[view]["up"]
+    component.focus(radius_factor=1.5, direction=direction, up=up)
 
 
 def _add_density(builder, emdb_id, detail=4, absolute_isovalue=None,
@@ -73,9 +211,20 @@ def _add_density(builder, emdb_id, detail=4, absolute_isovalue=None,
     elif relative_isovalue is not None:
         iso_kwargs["relative_isovalue"] = relative_isovalue
     else:
-        iso_kwargs["relative_isovalue"] = 1.5
+        recl = _fetch_emdb_contour(emdb_id)
+        sigma = _fetch_emdb_sigma(emdb_id) if recl is not None else None
+        if recl is not None and sigma and sigma > 0:
+            rel = recl / sigma
+            iso_kwargs["relative_isovalue"] = rel
+            print(f"  [contour] {emdb_id}: EMDB level {recl} = {rel:.2f} sigma")
+        elif recl is not None:
+            iso_kwargs["absolute_isovalue"] = recl
+            print(f"  [contour] {emdb_id}: EMDB level {recl} (sigma unknown)")
+        else:
+            iso_kwargs["relative_isovalue"] = 1.0
+            print(f"  [contour] {emdb_id}: no recommended level, using 1 sigma")
     vol.representation(**iso_kwargs).color(color=color).opacity(opacity=opacity)
-
+    return vol
 
 def create_map_model_scene(pdb_id, emdb_id, view=None, background=VA_BG_COLOR,
                            detail=4, absolute_isovalue=None, relative_isovalue=None):
@@ -87,9 +236,9 @@ def create_map_model_scene(pdb_id, emdb_id, view=None, background=VA_BG_COLOR,
     polymer = struct.component(selector="polymer")
     polymer.representation(type="cartoon").color(color=VA_MODEL_COLOR)
     struct.component(selector="ligand").representation(type="ball_and_stick").color(color=VA_MODEL_COLOR)
-    _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue)
+    volume = _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue)
     if view:
-        _apply_focus(polymer, view)
+        _apply_focus(polymer, view, builder, pdb_id=pdb_id, volume=volume)
     return builder
 
 
@@ -117,7 +266,7 @@ def create_qscore_scene(pdb_id, emdb_id, structure_url=None, view=None,
     _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue,
                  opacity=0.2)
     if view:
-        _apply_focus(polymer, view)
+        _apply_focus(polymer, view, builder, pdb_id=pdb_id)
     return builder
 
 
@@ -145,7 +294,7 @@ def create_atom_inclusion_scene(pdb_id, emdb_id, structure_url=None, view=None,
     _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue,
                  opacity=0.2)
     if view:
-        _apply_focus(polymer, view)
+        _apply_focus(polymer, view, builder, pdb_id=pdb_id)
     return builder
 
 
@@ -158,7 +307,7 @@ def create_structure_scene(pdb_id, view=None, background=VA_BG_COLOR):
     polymer.representation(type="cartoon").color(color=VA_MODEL_COLOR)
     struct.component(selector="ligand").representation(type="ball_and_stick").color(color=VA_MODEL_COLOR)
     if view:
-        _apply_focus(polymer, view)
+        _apply_focus(polymer, view, builder, pdb_id=pdb_id)
     return builder
 
 
@@ -184,7 +333,7 @@ def create_va_inclusion_scene(cif_data_url, emdb_id, view=None, background=VA_BG
     _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue,
                  opacity=0.2)
     if view:
-        _apply_focus(polymer, view)
+        _apply_focus(polymer, view, builder, pdb_id=pdb_id)
     return builder
 
 
@@ -217,8 +366,56 @@ def _builder_to_html(builder, title="Mol* Viewer"):
     }});
     const mvsData = {mvsj_json};
     await viewer.loadMvsData(mvsData, 'mvsj');
+      window.__viewerInstance = viewer;
   }}
   init();
+</script>
+<script>
+(function() {{
+  var checks = 0, stable = 0;
+  var poll = setInterval(function() {{
+    checks++;
+    var canvas = document.querySelector('#viewer canvas');
+    var hasContent = canvas && canvas.width > 0;
+    if (hasContent) {{
+      stable++;
+      if (stable >= 5) {{
+        clearInterval(poll);
+        try {{
+        // For large structures, Mol*'s focus() can leave the camera stuck
+        // at its initialization point. Force a reset to the actual scene
+        // bounding sphere center.
+        var v = window.__viewerInstance;
+        if (v && v.plugin && v.plugin.canvas3d) {{
+          var sphere = v.plugin.canvas3d.boundingSphereVisible;
+          if (sphere && sphere.radius > 0) {{
+            v.plugin.canvas3d.requestCameraReset({{ snapshot: {{ radius: sphere.radius * 1.4 }} }});
+          }}
+        }}
+      }} catch(e) {{ console.warn('camera reset failed', e); }}
+      window.__rendered = true;
+        document.title = 'READY ' + document.title;
+      }}
+    }} else {{ stable = 0; }}
+    if (checks > 240) {{
+      clearInterval(poll);
+      try {{
+        // For large structures, Mol*'s focus() can leave the camera stuck
+        // at its initialization point. Force a reset to the actual scene
+        // bounding sphere center.
+        var v = window.__viewerInstance;
+        if (v && v.plugin && v.plugin.canvas3d) {{
+          var sphere = v.plugin.canvas3d.boundingSphereVisible;
+          if (sphere && sphere.radius > 0) {{
+            v.plugin.canvas3d.requestCameraReset({{ snapshot: {{ radius: sphere.radius * 1.4 }} }});
+          }}
+        }}
+      }} catch(e) {{ console.warn('camera reset failed', e); }}
+      window.__rendered = true;
+      document.title = 'TIMEOUT ' + document.title;
+    }}
+  }}, 1000);
+}})();
 </script>
 </body>
 </html>"""

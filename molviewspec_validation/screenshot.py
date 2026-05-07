@@ -15,7 +15,13 @@ from typing import Optional
 
 
 def _setup_driver(width=1920, height=1080, pixel_ratio=2.0):
-    """Create a headless Firefox WebDriver with HD rendering."""
+    """Firefox WebDriver via Xvfb on :99.
+
+    Headless Firefox doesn't support WebGL (Mozilla bug 1375585), and
+    Mol* needs WebGL for volume rendering. We use Xvfb (a virtual X
+    server) so Firefox runs non-headless but invisible.
+    """
+    os.environ['DISPLAY'] = ':99'
     os.environ.setdefault('XDG_RUNTIME_DIR', '/tmp/runtime-root')
     os.environ.setdefault('MOZ_ENABLE_WAYLAND', '0')
     os.makedirs(os.environ['XDG_RUNTIME_DIR'], exist_ok=True)
@@ -25,8 +31,10 @@ def _setup_driver(width=1920, height=1080, pixel_ratio=2.0):
     from selenium.webdriver.firefox.service import Service
 
     options = Options()
-    options.add_argument('-headless')
     options.set_preference('layout.css.devPixelsPerPx', str(pixel_ratio))
+    options.set_preference('webgl.force-enabled', True)
+    options.set_preference('webgl.disabled', False)
+    options.set_preference('layers.acceleration.force-enabled', True)
 
     firefox_path = shutil.which('firefox')
     if firefox_path:
@@ -39,8 +47,37 @@ def _setup_driver(width=1920, height=1080, pixel_ratio=2.0):
     driver.set_window_size(width, height)
     return driver
 
+def screenshot_html(html_path, output_path, wait_seconds=30, driver=None,
+                    max_attempts=5, min_size_bytes=500_000):
+    """Render HTML -> PNG, retrying up to max_attempts on blank output.
 
-def screenshot_html(html_path, output_path, wait_seconds=30, driver=None):
+    A blank screenshot (file < min_size_bytes) typically means Mol* finished
+    loading before the volume isosurface had been computed. WebGL is now
+    working via Xvfb, but timing can still race; a retry with a fresh
+    browser session resolves it most of the time.
+    """
+    import os
+    last_err = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            _do_screenshot_once(html_path, output_path, wait_seconds, driver=None)
+        except Exception as e:
+            last_err = e
+            print(f"  [retry] attempt {attempt} raised {type(e).__name__}: {e}")
+            continue
+        if os.path.exists(output_path):
+            sz = os.path.getsize(output_path)
+            if sz >= min_size_bytes:
+                if attempt > 1:
+                    print(f"  [retry] succeeded on attempt {attempt} ({sz//1024}KB)")
+                return
+            print(f"  [retry] attempt {attempt}/{max_attempts}: {sz//1024}KB blank, retrying")
+    if last_err:
+        raise last_err
+    print(f"  [retry] all {max_attempts} attempts produced blank output")
+
+
+def _do_screenshot_once(html_path, output_path, wait_seconds=30, driver=None):
     """Render an HTML file to a PNG screenshot.
     
     If no driver is provided, creates and destroys a fresh one
@@ -51,7 +88,17 @@ def screenshot_html(html_path, output_path, wait_seconds=30, driver=None):
         driver = _setup_driver()
     try:
         driver.get(f"file://{os.path.abspath(html_path)}")
-        time.sleep(wait_seconds)
+        # Poll for the rendering-complete flag instead of fixed sleep
+        from selenium.webdriver.support.ui import WebDriverWait
+        try:
+            WebDriverWait(driver, wait_seconds).until(
+                lambda d: d.execute_script("return window.__rendered === true")
+            )
+            # Small additional settle time for the final frame
+            time.sleep(2)
+        except Exception:
+            print(f"  [warn] readiness flag never set within {wait_seconds}s, "
+                  f"taking screenshot anyway")
         driver.save_screenshot(output_path)
     finally:
         if close_driver:

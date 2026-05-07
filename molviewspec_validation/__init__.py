@@ -24,5 +24,9 @@ from molviewspec_validation.va_data import (
     create_scored_cif,
     cif_to_data_url,
 )
+from molviewspec_validation.emdb_api import (
+    get_recommended_contour_level,
+    fetch_emdb_metadata,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

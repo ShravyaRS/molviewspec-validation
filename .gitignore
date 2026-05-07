@@ -23,3 +23,27 @@ geckodriver.log
 # Allow images in the images/ directory
 *.png
 !images/*.png
+map_cache/
+cache/
+out_*/
+views/
+*.bak
+/tmp/
+v?_test/
+v??_test/
+v?_5a1a/
+v??_5a1a/
+centered*/
+verify_*/
+selenium_test/
+test_blank/
+retest*/
+gpu_*/
+prove_it/
+manual_test/
+path_c_html/
+xvfb_test/
+xvfb_final/
+batch_results/
+batch_final/
+batch_baseline/

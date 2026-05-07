@@ -1,10 +1,14 @@
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "molviewspec-validation"
-version = "0.1.0"
-description = "MolViewSpec-based 3DEM validation visualization (replaces ChimeraX)"
-requires-python = ">=3.8"
-dependencies = ["molviewspec>=1.0"]
+version = "0.2.0"
+description = "MolViewSpec-based 3DEM validation visualization"
+requires-python = ">=3.9"
+dependencies = ["molviewspec", "requests", "gemmi", "selenium", "Pillow"]
+
+[tool.setuptools]
+# Explicit package list -- avoids auto-discovering views/, cache/, etc.
+packages = ["molviewspec_validation"]
