@@ -34,3 +34,18 @@ threshold (below = blank canvas due to render race or contour edge case).
 | 9XED | EMD-66788 | 4.07 | 1539 | 613 | 588 | PERFECT |
 | 9XZK | EMD-72359 | 15.80 | 236 | 213 | 233 | ALL_BLANK |
 | 9Z8M | EMD-73900 | 1.53 | 161 | 168 | 167 | ALL_BLANK |
+
+## Atom inclusion + Q-score sanity check
+
+A 4-entry subset was rendered for the additional scene types to verify the
+non-density-based pipeline (per-residue coloring, no isosurface):
+
+| PDB | EMDB | Atom inclusion (3 views) | Q-score (3 views) |
+|---|---|---|---|
+| 5A1A | EMD-2984 | OK | OK |
+| 9MKW | EMD-48340 | OK | OK |
+| 9NU5 | EMD-49797 | OK | OK |
+| 9R0I | EMD-53483 | OK | OK |
+
+24/24 renders successful, with VA per-residue color gradients applied via
+the `__floatohex` formula.
