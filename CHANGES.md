@@ -61,6 +61,12 @@ Confirmed the color scheme matches VA's ChimeraX scripts:
 Sigma range: 1.32σ to 13.40σ. Production deployment on servers with
 hardware-accelerated WebGL should improve the partial-render cases.
 
+### Atom inclusion and Q-score scenes
+
+A 4-entry sanity check confirmed that the atom inclusion and Q-score scene
+types render correctly end-to-end (24/24 views OK across 5A1A, 9MKW, 9NU5,
+9R0I). Per-residue color gradients use VA's `__floatohex` formula directly.
+
 ### Known limitations
 
 - Asymmetric large structures (e.g. 9HYU/EMD-52518, 19-meric assembly
