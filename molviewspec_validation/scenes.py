@@ -93,7 +93,7 @@ PDB_URL = "https://files.rcsb.org/download/{pdb_id}.cif"
 VA_MODEL_COLOR = "#003BFF"
 VA_MAP_COLOR = "#B8860B"
 VA_MAP_OPACITY = 0.35  # 1 - 0.65 transparency
-VA_BG_COLOR = "white"
+VA_BG_COLOR = "#D3D3D3"
 
 # VA atom inclusion palette: #7A0000 (score=0) to #7AFFFF (score=1)
 VA_AI_PALETTE = [
@@ -204,7 +204,41 @@ def _apply_focus(component, view, builder=None, pdb_id=None, volume=None):
 
 def _add_density(builder, emdb_id, detail=4, absolute_isovalue=None,
                  relative_isovalue=None, color=VA_MAP_COLOR, opacity=VA_MAP_OPACITY):
-    vol = builder.download(url=_get_emdb_vol_url(emdb_id, detail)).parse(format="bcif").volume()
+    """Add density isosurface to builder, loading raw .map.gz from EMDB FTP.
+
+    Matches Arthur's reference HTML approach: raw map values + absolute
+    contour value. Mol* parses CCP4 maps directly. The .map files are
+    cached locally to avoid re-downloading on each render.
+    """
+    eid = emdb_id.replace("EMD-", "").upper()
+    cache_dir = "map_cache"
+    os.makedirs(cache_dir, exist_ok=True)
+    map_path = os.path.join(cache_dir, f"emd_{eid}.map")
+
+    if not os.path.exists(map_path):
+        import urllib.request, gzip, shutil
+        url = f"https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-{eid}/map/emd_{eid}.map.gz"
+        print(f"  [map] downloading EMD-{eid} from FTP...")
+        try:
+            with urllib.request.urlopen(url, timeout=180) as resp:
+                with gzip.GzipFile(fileobj=resp) as gz, open(map_path, "wb") as out:
+                    shutil.copyfileobj(gz, out)
+            sz_mb = os.path.getsize(map_path) / (1024*1024)
+            print(f"  [map] saved EMD-{eid}.map ({sz_mb:.0f} MB)")
+        except Exception as e:
+            print(f"  [warn] EMD-{eid} map download failed: {e}, falling back to bcif")
+            url = f"https://maps.rcsb.org/em/EMD-{eid}/cell?detail={detail}"
+            vol = builder.download(url=url).parse(format="bcif").volume()
+            iso_kwargs = {"type": "isosurface"}
+            recl = _fetch_emdb_contour(emdb_id)
+            iso_kwargs["absolute_isovalue"] = recl if recl else 1.0
+            vol.representation(**iso_kwargs).color(color=color).opacity(opacity=opacity)
+            return vol
+
+    # Load via local file:// URL (Mol* parses CCP4 directly)
+    file_url = f"file://{os.path.abspath(map_path)}"
+    vol = builder.download(url=file_url).parse(format="map").volume()
+
     iso_kwargs = {"type": "isosurface"}
     if absolute_isovalue is not None:
         iso_kwargs["absolute_isovalue"] = absolute_isovalue
@@ -212,19 +246,15 @@ def _add_density(builder, emdb_id, detail=4, absolute_isovalue=None,
         iso_kwargs["relative_isovalue"] = relative_isovalue
     else:
         recl = _fetch_emdb_contour(emdb_id)
-        sigma = _fetch_emdb_sigma(emdb_id) if recl is not None else None
-        if recl is not None and sigma and sigma > 0:
-            rel = recl / sigma
-            iso_kwargs["relative_isovalue"] = rel
-            print(f"  [contour] {emdb_id}: EMDB level {recl} = {rel:.2f} sigma")
-        elif recl is not None:
+        if recl is not None:
             iso_kwargs["absolute_isovalue"] = recl
-            print(f"  [contour] {emdb_id}: EMDB level {recl} (sigma unknown)")
+            print(f"  [contour] {emdb_id}: EMDB level {recl} (absolute, raw map)")
         else:
             iso_kwargs["relative_isovalue"] = 1.0
-            print(f"  [contour] {emdb_id}: no recommended level, using 1 sigma")
+
     vol.representation(**iso_kwargs).color(color=color).opacity(opacity=opacity)
     return vol
+
 
 def create_map_model_scene(pdb_id, emdb_id, view=None, background=VA_BG_COLOR,
                            detail=4, absolute_isovalue=None, relative_isovalue=None):
@@ -258,13 +288,15 @@ def create_qscore_scene(pdb_id, emdb_id, structure_url=None, view=None,
         palette={
             "kind": "continuous",
             "colors": [c for c, v in VA_QS_PALETTE],
-            "mode": "absolute",
+            "mode": "normalized",
             "value_domain": (0.0, 100.0),
+            "underflow_color": "auto",
+            "overflow_color": "auto",
         },
     )
     struct.component(selector="ligand").representation(type="ball_and_stick").color(color=VA_MODEL_COLOR)
-    _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue,
-                 opacity=0.2)
+    # Volume omitted from qscore view: the per-residue color is the focus.
+    # _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue, opacity=0.2)
     if view:
         _apply_focus(polymer, view, builder, pdb_id=pdb_id)
     return builder
@@ -286,13 +318,15 @@ def create_atom_inclusion_scene(pdb_id, emdb_id, structure_url=None, view=None,
         palette={
             "kind": "continuous",
             "colors": [c for c, v in VA_AI_PALETTE],
-            "mode": "absolute",
+            "mode": "normalized",
             "value_domain": (0.0, 100.0),
+            "underflow_color": "auto",
+            "overflow_color": "auto",
         },
     )
     struct.component(selector="ligand").representation(type="ball_and_stick").color(color=VA_MODEL_COLOR)
-    _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue,
-                 opacity=0.2)
+    # Volume omitted from atom_inclusion view: the per-residue color is the focus.
+    # _add_density(builder, emdb_id, detail, absolute_isovalue, relative_isovalue, opacity=0.2)
     if view:
         _apply_focus(polymer, view, builder, pdb_id=pdb_id)
     return builder
