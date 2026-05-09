@@ -10,7 +10,7 @@ MolViewSpec-based 3DEM validation visualization for [IHMValidation](https://gith
 
 ## Sample renders (v0.2.0)
 
-Map and model views at depositor-recommended contour levels, fetched from the EMDB API and converted to sigma units before passing to Mol*.
+Map and model views at depositor-recommended contour levels, fetched from the EMDB API and passed as absolute contour values to Mol*, matching the VA ChimeraX surfaceview approach (raw .map files cached locally).
 
 | 5A1A / EMD-2984 (2.99σ) | 5A63 / EMD-3061 (5.32σ) | 9MKW / EMD-48340 (2.91σ) |
 |:---:|:---:|:---:|
@@ -27,15 +27,15 @@ These six entries span sigma ratios from 2.91 to 13.40, demonstrating the contou
 **Scene types**
 
 - Map-model fit: structure plus density isosurface (replaces `*_xsurface.jpeg`)
-- Q-score colored: RdYlGn palette (replaces `*_xqscoresurface.jpeg`)
-- Atom inclusion colored: real VA per-residue scores (replaces `*_xfitsurface.jpeg`)
+- Q-score colored: VA black-to-blue palette (#000000 → #0D00FF), replaces `*_xqscoresurface.jpeg`
+- Atom inclusion colored: VA red-to-cyan palette (#7A0000 → #7AFFFF, matches VA `__floatohex`), replaces `*_xfitsurface.jpeg`
 
 **Rendering**
 
 - Three orthogonal views (X, Y, Z) with auto-centering
 - HD static images (3840x1990) via Firefox + Selenium with WebGL through Xvfb
 - Interactive HTML with embedded Mol* viewer
-- Density streaming from EMDB volume server, with on-demand map download for sigma normalization
+- Density rendering from raw .map files (cached locally) using absolute contour values from the EMDB API
 
 **VA data integration**
 
