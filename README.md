@@ -12,15 +12,15 @@ MolViewSpec-based 3DEM validation visualization for [IHMValidation](https://gith
 
 Map and model views at depositor-recommended contour levels, fetched from the EMDB API and passed as absolute contour values to Mol*, matching the VA ChimeraX surfaceview approach (raw .map files cached locally).
 
-| 5A1A / EMD-2984 | 5A63 / EMD-3061 | 9MKW / EMD-48340 |
-|:---:|:---:|:---:|
-| ![](images/5a1a_mapmodel_z.png) | ![](images/5a63_mapmodel_z.png) | ![](images/9mkw_mapmodel_z.png) |
+| 5A1A / EMD-2984 | 5A63 / EMD-3061 |
+|:---:|:---:|
+| ![](images/5a1a_mapmodel_z.png) | ![](images/5a63_mapmodel_z.png) |
 
-| 9NU5 / EMD-49797 | 9R0I / EMD-53483 | 9SYV / EMD-55355 |
-|:---:|:---:|:---:|
-| ![](images/9nu5_mapmodel_z.png) | ![](images/9r0i_mapmodel_z.png) | ![](images/9syv_mapmodel_z.png) |
+| 9MKW / EMD-48340 | 9A9X / EMD-47736 |
+|:---:|:---:|
+| ![](images/9mkw_mapmodel_z.png) | ![](images/9a9x_mapmodel_z.png) |
 
-These six entries demonstrate the EMDB recommended-contour fetch and absolute-isovalue rendering across a range of map density scales. See [CHANGES.md](CHANGES.md) for the full v0.2.0 changelog and [BATCH_RESULTS.md](BATCH_RESULTS.md) for results across all 28 benchmark entries.
+These entries demonstrate the EMDB recommended-contour fetch and absolute-isovalue rendering across a range of map density scales, including the 9A9X fibril case. See [CHANGES.md](CHANGES.md) for the full v0.2.0 changelog and [BATCH_RESULTS.md](BATCH_RESULTS.md) for results across all 28 benchmark entries.
 
 ## Features
 
